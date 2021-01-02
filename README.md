@@ -1,4 +1,6 @@
-# open10q
+![alt text](src/images/open10q-logo-small.png)
+
+
 Simplifying financial data of public companies.
 
 
