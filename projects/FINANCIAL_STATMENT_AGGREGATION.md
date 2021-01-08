@@ -16,5 +16,5 @@
 - [ ] Extract financial statement table via OCR methods (consider using [AWS textExtract](https://docs.aws.amazon.com/textract/latest/dg/how-it-works-tables.html))
 
 ### Links
-- [Projects page](PROJECTS.md)
-- [Home page](README.md)
+- [Projects page](../PROJECTS.md)
+- [Home page](../README.md)
