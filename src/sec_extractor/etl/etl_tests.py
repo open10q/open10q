@@ -13,7 +13,7 @@ class TestETL(unittest.TestCase):
         apple = db.get_company_by_name("APPLE INC").toDict()
         self.assertTrue(len(apple) > 0)
         okta = db.get_company_by_name("OKTA, INC.").toDict()
-        self.assertTrue(len(okta) > 0)
+        self.assertTrue(len(okta) == 0)
 
 
 if __name__ == '__main__':
