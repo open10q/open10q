@@ -1,6 +1,6 @@
 import unittest
 import os
-from etl import CompaniesDB, load_companies
+from .etl import CompaniesDB, load_companies
 
 
 class TestETL(unittest.TestCase):
