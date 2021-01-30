@@ -1,6 +1,5 @@
 from typing import Iterator
 import hashlib
-import glob
 
 INTERESTING_FIELDS = [
     'Assets', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit'
@@ -28,43 +27,42 @@ class Record:
 
 class RecordSet:
 
-    def __init__(self, form_type):
-        self._form_type = form_type
-        self._records = {}
+    def __init__(self, record_type):
+        self._record_type = record_type
+        self._records = []
+        self._records_keys = {}
 
-    def add_record(self, record_type, record_value, record_date, quarters):
-        if record_type not in self._records:
-            self._records[record_type] = []
+    def add_record(self, record_value, record_date, quarters):
+        record_key = f"{record_date}-{record_value}-{quarters}"
+        if record_key not in self._records_keys:
+            self._records_keys[record_key] = 1
+            self._records.append(Record(record_value, record_date, quarters))
+            return
 
-        self._records[record_type].append(Record(record_value, record_date, quarters))
+        self._records_keys[record_key] += 1
 
     def toDict(self):
         d = {
-            "form_type": self._form_type,
-            "records": {}
+            "record_type": self._record_type,
+            "records": []
         }
 
-        for record_type, records in self._records.items():
-            if record_type in INTERESTING_FIELDS:
-                if record_type not in d['records']:
-                    d['records'][record_type] = []
+        for r in self._records:
+            d['records'].append(r.toDict())
 
-                for r in records:
-                    d['records'][record_type].append(r.toDict())
-
+        d['records'] = sorted(d['records'], key=lambda record: int(record['date']))
         return d
 
     @property
-    def form_type(self):
-        return self._form_type
+    def record_type(self):
+        return self._record_type
 
 
 class Company:
     def __init__(self, name, company_id):
         self._id = company_id
         self._name = name
-        self._filings = {}
-        self._records = []
+        self._records_sets = {}
 
     @property
     def name(self):
@@ -74,23 +72,17 @@ class Company:
     def id(self):
         return self._id
 
-    def add_filing(self, filing_id: str, filing_type: str):
-        if filing_id in self._filings:
-            return
+    def add_record(self, record_type, record_value, record_date, quarters):
+        if record_type not in self._records_sets:
+            self._records_sets[record_type] = RecordSet(record_type=record_type)
 
-        self._filings[filing_id] = RecordSet(form_type=filing_type)
-
-    def add_record(self, record_type, record_value, record_date, filing_id, quarters):
-        self._filings[filing_id].add_record(record_type, record_value, record_date, quarters)
+        self._records_sets[record_type].add_record(record_value, record_date, quarters)
 
     def toDict(self):
         forms = []
 
-        for filing in self._filings.values():
-            if filing.form_type not in INTERESTING_FORMS:
-                continue
-
-            forms.append(filing.toDict())
+        for record_set in self._records_sets.values():
+            forms.append(record_set.toDict())
 
         return forms
 
@@ -114,7 +106,6 @@ class CompaniesDB:
 
         if filing_id not in self._filing_id_to_company_id:
             self._filing_id_to_company_id[filing_id] = company_id
-            self._db[company_id].add_filing(filing_id, filing_type)
 
     def get_company_by_id(self, company_id: str) -> Company:
         return self._db[company_id]
@@ -136,6 +127,9 @@ def load_companies(db: CompaniesDB, companies_file: str, fin_data_file: str):
             values = line.split("\t")
             form_type = values[25]
             company_name = values[2]
+            if company_name not in ["APPLE INC", "OKTA, INC."]:
+                continue
+
             filing_id = values[0]
             db.create_or_update_company(company_name, filing_id, form_type)
 
@@ -147,17 +141,9 @@ def load_companies(db: CompaniesDB, companies_file: str, fin_data_file: str):
             record_date = values[4]
             quarters = values[5]
             record_value = values[7]
-            company = db.get_company_by_filing_id(filing_id)
-            company.add_record(record_type, record_value, record_date, filing_id, quarters)
+            try:
+                company = db.get_company_by_filing_id(filing_id)
+            except KeyError:
+                continue
 
-
-if __name__ == '__main__':
-    db = CompaniesDB()
-    dirs = glob.glob("./data/extracted/*")
-    for d in dirs:
-        print(f"loading {d} ...")
-        load_companies(db, f"{d}/sub.txt", f"{d}/num.txt")
-
-    apple = db.get_company_by_name("APPLE INC")
-    json = apple.toDict()
-    print("done")
+            company.add_record(record_type, record_value, record_date, quarters)
